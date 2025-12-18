@@ -1,0 +1,76 @@
+name: 'Setup DX'
+description: 'Install DX terminal interface for GitHub Actions'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'DX version to install (default: latest)'
+    required: false
+    default: 'latest'
+  install-asciinema:
+    description: 'Also install asciinema for recording (default: true)'
+    required: false
+    default: 'true'
+
+outputs:
+  dx-version:
+    description: 'Installed DX version'
+    value: ${{ steps.setup.outputs.version }}
+  dx-path:
+    description: 'Path to DX binary'
+    value: ${{ steps.setup.outputs.path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get update
+          sudo apt-get install -y curl
+          if [[ "${{ inputs.install-asciinema }}" == "true" ]]; then
+            sudo apt-get install -y asciinema
+          fi
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "${{ inputs.install-asciinema }}" == "true" ]]; then
+            brew install asciinema || true
+          fi
+        fi
+
+    - name: Install Rust (if needed)
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Setup dx
+      id: setup
+      shell: bash
+      run: |
+        echo "🚀 Installing DX terminal interface..."
+        
+        if [[ "${{ inputs.version }}" == "latest" ]]; then
+          echo "Building from source (latest)..."
+          cargo build --release
+          DX_PATH="$PWD/target/release/dx"
+        else
+          # TODO: Download specific version when releases are available
+          echo "Building from source (version not yet supported)..."
+          cargo build --release
+          DX_PATH="$PWD/target/release/dx"
+        fi
+        
+        # Install to system path
+        sudo cp "$DX_PATH" /usr/local/bin/dx
+        
+        # Verify installation
+        DX_VERSION=$(dx --version)
+        echo "✅ DX installed: $DX_VERSION"
+        
+        # Show available aliases
+        echo "📋 Available aliases:"
+        dx aliases | head -10
+        
+        # Output for other steps
+        echo "version=$DX_VERSION" >> $GITHUB_OUTPUT
+        echo "path=/usr/local/bin/dx" >> $GITHUB_OUTPUT

@@ -1,0 +1,62 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "dx (debug)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--bin=dx", "--package=dx"],
+        "filter": { "name": "dx", "kind": "bin" }
+      },
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": { "DX_RELAUNCHED": "1" },
+      "terminal": "external"
+    },
+    {
+      "name": "dx (debug) with menu.toml",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--bin=dx", "--package=dx"],
+        "filter": { "name": "dx", "kind": "bin" }
+      },
+      "cwd": "${workspaceFolder}",
+      "args": ["--menu", "menu.toml"],
+      "env": { "DX_RELAUNCHED": "1" },
+      "terminal": "external"
+    },
+    {
+      "name": "dx (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "--bin=dx", "--package=dx"],
+        "filter": { "name": "dx", "kind": "bin" }
+      },
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": { "DX_RELAUNCHED": "1" },
+      "terminal": "external"
+    },
+    {
+      "name": "dx (run binary)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/dx",
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": { "DX_RELAUNCHED": "1" },
+      "terminal": "external"
+    },
+    {
+      "name": "dx (run in terminal)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "${workspaceFolder}/target/debug/dx",
+      "cwd": "${workspaceFolder}",
+      "env": { "DX_RELAUNCHED": "1" }
+    }
+  ]
+}

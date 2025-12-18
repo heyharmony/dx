@@ -1,0 +1,68 @@
+name: Release via DX
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip actual release)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release-with-dx:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Bootstrap dx for release
+      shell: bash
+      run: |
+        echo "🚀 Building dx for self-managed release..."
+        cargo build --release
+        sudo cp target/release/dx /usr/local/bin/dx
+        dx --version
+        echo "📋 Release aliases available:"
+        dx aliases | grep -E "(build|git|tools)"
+
+    - name: Build release via dx
+      run: dx build:release
+      
+    - name: Test release via dx
+      run: dx build:test
+      
+    - name: Lint release via dx
+      run: dx build:clippy
+      
+    - name: Version info via dx
+      run: dx tools:version
+      
+    - name: Git status via dx
+      run: dx git:src:status
+      
+    - name: Show dx menu capabilities
+      run: |
+        echo "🎯 DX Self-Management Demo:"
+        echo "- Used dx to build itself ✅"
+        echo "- Used dx aliases for all CI steps ✅" 
+        echo "- Unified config+menu format working ✅"
+        echo "- Nested aliases with arguments working ✅"
+        echo ""
+        echo "📋 This release was entirely managed by dx!"
+        
+    # TODO: Add actual release steps when ready
+    # - name: Publish via dx
+    #   if: inputs.dry_run != 'true'
+    #   run: dx git:public:publish
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

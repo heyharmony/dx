@@ -1,0 +1,35 @@
+# Rust build artifacts
+target/
+**/target/
+
+# Local preview artifacts
+.preview/
+
+# Ignore cast recordings
+*.cast
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Build artifacts
+build-artifacts/
+
+# Local/personal config overrides
+*.local.toml
+*.local.yaml
+*.local.yml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE (uncomment if you want to exclude)
+# .vscode/
+# .idea/

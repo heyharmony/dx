@@ -1,0 +1,276 @@
+# == DX UNIFIED CONFIG + MENU ==
+config:
+  telemetry:
+    enabled: false  # Change to true to enable telemetry (opt-in)
+    endpoint: "http://127.0.0.1:8080"
+
+  update:
+    on_start: true
+    build_cmd: "cargo build --release"
+    relaunch_path: "target/release/dx"
+    preserve_args: true
+
+  asciinema:
+    dir: "../dx-recordings"
+    enabled: true
+    external: true
+    on_relaunch: true
+    file_prefix: "dx"
+    quiet: true
+    overwrite: true
+
+  theme: "dark"
+  markdown_enabled: true
+  output_dim: true
+
+# == PROJECT MENU ==
+menu:
+  - name: Heavy Rendering
+    desc: Heavy rendering tasks
+    items:
+      - name: Btop
+        desc: System monitor (heavy rendering)
+        cmd: "btop"
+        enhanced_terminal: true
+
+      - name: MC
+        desc: System information (heavy rendering)
+        cmd: "mc"
+        enhanced_terminal: true
+
+      - name: Claude Code
+        desc: System uptime (heavy rendering)
+        cmd: "claude"
+        enhanced_terminal: true
+        
+      - name: Cursor Agent
+        desc: System process monitor (heavy rendering)
+        cmd: "cursor-agent"
+        enhanced_terminal: true
+
+      - name: Htop
+        desc: System process monitor (heavy rendering)
+        cmd: "htop"
+        enhanced_terminal: true
+        
+      - name: Glances
+        desc: System monitor (heavy rendering)
+        cmd: "glances"
+
+  # == BUILD & DEVELOPMENT ==
+  - name: Build
+    desc: Build and compilation tasks
+    items:
+      - name: Release
+        desc: Build release binary with version bump
+        cmd: "./scripts/increment_build.sh && cargo build --release"
+
+      - name: Install
+        desc: Build and install dx locally
+        cmd: "echo '--- CWD ---'; pwd; echo '\n--- PATH ---'; echo $PATH; echo '\n--- SHELL ---'; echo $SHELL; echo '\n--- Trying which cargo ---'; which cargo; echo '\n--- Running command ---'; bash ./scripts/install.sh"
+
+      - name: Bump
+        desc: Increment BUILD and regenerate VERSION.txt
+        cmd: "./scripts/increment_build.sh"
+        external: true
+
+      - name: Test
+        desc: Run cargo test
+        cmd: "cargo test"
+
+      - name: Clippy
+        desc: Run clippy linter with warnings as errors
+        cmd: "cargo clippy -- -D warnings"
+
+      - name: Sign
+        desc: macOS signing and notarization
+        items:
+          - name: Notarize
+            desc: Sign, notarize and staple dx binary (requires DEVELOPER_ID and NOTARY_PROFILE)
+            cmd: "DEVELOPER_ID=\"${DEVELOPER_ID:-}\" NOTARY_PROFILE=\"${NOTARY_PROFILE:-}\" ./scripts/macos_sign_and_notarize.sh --binary ./target/release/dx"
+
+  # == GIT OPERATIONS ==
+  - name: Git
+    desc: Git operations for both repositories
+    items:
+      - name: Src
+        desc: dx-src repository operations
+        items:
+          - name: Status
+            desc: Show git status of dx-src
+            cmd: "git status"
+
+          - name: Pull
+            desc: Pull and rebase from origin/main
+            cmd: "git pull --rebase origin main"
+
+          - name: Push
+            desc: Push current branch
+            cmd: "git push"
+
+          - name: Log
+            desc: Show compact history graph
+            cmd: "git --no-pager log --oneline --graph --decorate -20"
+
+          - name: Tag
+            desc: Tag HEAD with VERSION.txt and push tag
+            cmd: "./scripts/src_tag_current_version.sh"
+
+      - name: Public
+        desc: dx-public repository operations
+        items:
+          - name: Publish
+            desc: Copy binary and assets to dx-public
+            cmd: "./scripts/publish_public.sh"
+
+          - name: Status
+            desc: Show git status of dx-public repo
+            cmd: "cd ${DX_PUBLIC_PATH:-../dx-public} && git status"
+
+          - name: Force
+            desc: Squash to one commit and force push to origin/main
+            cmd: "./scripts/public_git_single_commit_push.sh"
+            external: true
+
+          - name: Open
+            desc: Open dx-public folder in Finder
+            cmd: "open ${DX_PUBLIC_PATH:-../dx-public}"
+
+  # == DEVELOPMENT TOOLS ==
+  - name: Tools
+    desc: Development tools and utilities
+    items:
+      - name: Rust
+        desc: Rust toolchain information
+        items:
+          - name: Version
+            desc: Show installed Rust compiler version
+            cmd: "rustc --version"
+
+      - name: Cursor
+        desc: Cursor editor operations
+        items:
+          - name: Open
+            desc: Open dx-src project in Cursor
+            cmd: "./scripts/launch_cursor.sh ."
+            external: true
+
+          - name: Agent
+            desc: Start Cursor Agent in this workspace
+            cmd: "bash -lc 'command -v cursor >/dev/null 2>&1 && cursor --agent || cursor --agent 2>/dev/null || echo \"Use menu: Cursor > Open project to install Cursor CLI\"'"
+            external: true
+
+      - name: Version
+        desc: Show dx version information
+        cmd: "[ -f build-artifacts/VERSION.txt ] && cat build-artifacts/VERSION.txt || echo no VERSION; [ -f build-artifacts/BUILD ] && echo BUILD=$(cat build-artifacts/BUILD) || echo no BUILD"
+
+  # == UTILITIES ==
+  - name: Utils
+    desc: General utility commands
+    items:
+      - name: MC
+        desc: Midnight Commander file manager
+        cmd: mc
+
+      - name: Claude
+        desc: Claude AI assistant
+        cmd: claude
+
+      - name: Btop
+        desc: System monitor (heavy rendering)
+        cmd: "btop"
+
+  # == CI/CD OPERATIONS ==
+  - name: CI
+    alias: ci
+    desc: Continuous Integration tasks
+    items:
+      - name: Full Pipeline
+        alias: full
+        desc: Complete CI pipeline (build + test + lint)
+        cmd: "./scripts/increment_build.sh && cargo build --release && cargo test && cargo clippy -- -D warnings"
+        
+      - name: Quick Check
+        alias: quick
+        desc: Fast validation (test + clippy only)
+        cmd: "cargo test && cargo clippy -- -D warnings"
+        
+      - name: GitHub
+        desc: GitHub-specific operations
+        items:
+          - name: Validate Workflows
+            alias: validate
+            desc: Validate GitHub workflow syntax
+            cmd: "find .github/workflows -name '*.yml' -exec yamllint {} \\; || echo 'yamllint not installed'"
+            
+          - name: List Workflows
+            alias: list
+            desc: Show all GitHub workflows
+            cmd: "ls -la .github/workflows/"
+            
+      - name: Docker
+        desc: CI Docker operations
+        items:
+          - name: Build Test Image
+            alias: test
+            desc: Build Docker image for testing
+            cmd: "docker build -t dx:ci-test ."
+            
+          - name: Security Scan
+            alias: scan  
+            desc: Run security scan on Docker image
+            cmd: "docker run --rm -v $(pwd):/app aquasec/trivy fs /app || echo 'trivy not available'"
+
+  # == EXAMPLES ==
+  - name: Examples
+    desc: Usage examples and demos
+    items:
+      - name: Terminal
+        desc: Terminal mode examples
+        items:
+          - name: Enhanced
+            desc: Enhanced terminal mode with better app compatibility
+            cmd: echo "Testing enhanced terminal mode..." && sleep 1 && python3 -c "import sys; print('Python interactive test:', sys.stdout.isatty())" && npm --version 2>/dev/null || echo "npm not found"
+            enhanced_terminal: true
+
+          - name: Regular
+            desc: Regular terminal mode for comparison
+            cmd: echo "Testing regular terminal mode..." && sleep 1 && python3 -c "import sys; print('Python interactive test:', sys.stdout.isatty())" && npm --version 2>/dev/null || echo "npm not found"
+
+      - name: Alias Examples
+        alias: alias_demo
+        desc: Examples of custom alias overrides
+        items:
+          - name: "Database Migration"     # Auto: alias_demo:database_migration
+            alias: "migrate"               # Override: alias_demo:migrate  
+            desc: Example with alias override
+            cmd: echo "Running database migration..."
+
+          - name: "Complex Deploy Task"   # Auto: alias_demo:complex_deploy_task
+            alias: "deploy"               # Override: alias_demo:deploy
+            desc: Deploy with custom alias
+            cmd: echo "Deploying application..."
+            
+          - name: "Super Long Command Name With Spaces"  # Auto: alias_demo:super_long_command_name_with_spaces
+            alias: "short"                                # Override: alias_demo:short
+            desc: Long name with short alias
+            cmd: echo "Short alias for long name!"
+
+      - name: Form
+        desc: Interactive form example
+        form:
+          title: "Create user"
+          fields:
+            - name: name
+              label: "Name"
+              placeholder: "Your name"
+              help: "Enter your full name"
+            - name: lang
+              label: "Language"
+              type: select
+              options:
+                - Rust
+                - Go
+                - Python
+              help: "Choose your preferred language"
+          submit: "echo 'Hello {name}! Your favorite is {lang}!'"

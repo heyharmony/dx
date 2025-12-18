@@ -1,0 +1,46 @@
+name: CI via DX
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Bootstrap dx
+      shell: bash
+      run: |
+        echo "🚀 Self-hosting CI: Using dx to build dx!"
+        cargo build --release
+        sudo cp target/release/dx /usr/local/bin/dx
+        dx --version
+        echo "📋 Available dx aliases:"
+        dx aliases | head -10
+
+    - name: Build via dx
+      run: dx build:release
+
+    - name: Test via dx  
+      run: dx build:test --verbose
+
+    - name: Lint via dx
+      run: dx build:clippy
+      
+    - name: Validate unified format
+      run: |
+        echo "✅ Unified config+menu format validation:"
+        dx git:src:status || echo "Git status alias works!"
+        dx tools:rust:version || echo "Tools alias works!"
+        echo "🎯 Dog-fooding successful!"

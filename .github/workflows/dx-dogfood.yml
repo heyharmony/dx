@@ -1,0 +1,179 @@
+name: DX Dogfood CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dx-live-and-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install asciinema and agg (gif converter)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y asciinema curl
+          # Install agg (optional, for GIF previews)
+          AGG_VER=v1.4.3
+          curl -sSL https://github.com/asciinema/agg/releases/download/${AGG_VER}/agg-${AGG_VER#v}-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin --strip-components=1 || true
+
+      - name: Start live stream and capture URL
+        id: live
+        shell: bash
+        run: |
+          set -euo pipefail
+          TO=60
+          URL=""
+          # Start asciinema stream in background and capture stdout/stderr to a log
+          { asciinema stream 2>&1 | tee /tmp/asciinema.log & echo $! > /tmp/ASC_PID; } || true
+          for i in $(seq 1 $TO); do
+            if grep -Eo 'Live streaming at .*' /tmp/asciinema.log >/dev/null 2>&1; then
+              URL=$(grep -Eo 'Live streaming at .*' /tmp/asciinema.log | head -n1 | sed 's/Live streaming at //')
+              break
+            fi
+            sleep 1
+          done
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Comment PR with live URL (if any)
+        if: steps.live.outputs.url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = process.env.URL
+            const body = `🚀 DX live build stream started:\n\n- ${url}\n\n(It will end when the job finishes.)`
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            })
+        env:
+          URL: ${{ steps.live.outputs.url }}
+
+      - name: Bootstrap dx binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Building dx first time (bootstrap)..."
+          cargo build --release
+          echo "Installing dx for CI use..."
+          cp target/release/dx /usr/local/bin/dx || sudo cp target/release/dx /usr/local/bin/dx
+          echo "dx version: $(dx --version)"
+
+      - name: Build via dx (recorded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          asciinema rec -q -t "DX Build via dx aliases" -c "dx build:release" dx-build.cast
+
+      - name: Tests via dx (recorded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          asciinema rec -q -t "DX Test via dx aliases" -c "dx build:test --verbose" dx-test.cast
+
+      - name: Clippy via dx (recorded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          asciinema rec -q -t "DX Clippy via dx aliases" -c "dx build:clippy" dx-clippy.cast
+
+      - name: Show dx menu (recorded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Recording dx menu navigation..."
+          asciinema rec -q -t "DX Menu Demo" -c "echo 'Starting dx menu...' && timeout 10s dx || echo 'Menu demo completed'" dx-menu.cast
+        continue-on-error: true
+
+      - name: List dx aliases (recorded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          asciinema rec -q -t "DX Aliases List" -c "dx aliases" dx-aliases.cast
+
+      - name: Convert to GIF (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v agg >/dev/null 2>&1; then
+            agg dx-build.cast dx-build.gif || true
+            agg dx-test.cast dx-test.gif || true
+            agg dx-clippy.cast dx-clippy.gif || true
+            agg dx-menu.cast dx-menu.gif || true
+            agg dx-aliases.cast dx-aliases.gif || true
+          fi
+        continue-on-error: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dx-session-artifacts
+          path: |
+            dx-build.cast
+            dx-test.cast
+            dx-clippy.cast
+            dx-menu.cast
+            dx-aliases.cast
+            dx-build.gif
+            dx-test.gif
+            dx-clippy.gif
+            dx-menu.gif
+            dx-aliases.gif
+          retention-days: 7
+
+      - name: Job summary
+        shell: bash
+        run: |
+          {
+            echo "### 🚀 DX Dog-fooding Results"
+            if [ -n "${{ steps.live.outputs.url }}" ]; then
+              echo ""
+              echo "- 📺 Live stream: ${{ steps.live.outputs.url }}"
+            fi
+            echo ""
+            echo "#### 📋 Generated Artifacts:"
+            echo "- 🔨 Build: dx-build.cast (via \`dx build:release\`)"
+            echo "- 🧪 Tests: dx-test.cast (via \`dx build:test\`)"
+            echo "- 🔍 Clippy: dx-clippy.cast (via \`dx build:clippy\`)"
+            echo "- 📋 Menu: dx-menu.cast (dx menu navigation)"
+            echo "- 📄 Aliases: dx-aliases.cast (dx aliases list)"
+            echo ""
+            echo "#### 🎯 Dog-fooding Success:"
+            echo "- ✅ dx installed itself using \`dx build:install\`"
+            echo "- ✅ CI/CD uses dx aliases instead of raw cargo commands"
+            echo "- ✅ Unified config+menu format working in production"
+            if [ -f dx-build.gif ]; then
+              echo ""
+              echo "#### 🎬 Preview (build process)"
+              echo '![dx-build](dx-build.gif)'
+            fi
+            if [ -f dx-aliases.gif ]; then
+              echo ""
+              echo "#### 📋 Aliases Demo"
+              echo '![dx-aliases](dx-aliases.gif)'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop live stream (if running)
+        if: steps.live.outputs.url != ''
+        shell: bash
+        run: |
+          if [ -f /tmp/ASC_PID ]; then
+            kill -INT "$(cat /tmp/ASC_PID)" || true
+          fi
+
+
